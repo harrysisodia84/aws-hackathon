@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create a DB subnet group and MYSQL Database"
+
+Parameters:
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: The VPC to create the cluster
+  Subnet:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The subnet for the DB cluster
+  MasterUsername:
+    Type: String
+    Description: The username for our database.
+    Default: targaryen
+  
+  MasterUserPassword:
+    Type: String
+    Description: The password for the database.
+    "NoEcho": true
+
+  ParameterGroup:
+    Type: String
+    Description: The name of the database parameter group created.
+    Default: default.postgres12
+
+
+Resources:
+    EC2SecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "Database instances security group"
+            VpcId: !Ref VPC
+            SecurityGroupIngress: 
+              - 
+                CidrIp: "10.0.0.0/8"
+                FromPort: 5432
+                IpProtocol: "tcp"
+                ToPort: 5432
+            SecurityGroupEgress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                IpProtocol: "-1"
+
+    RDSDBSubnetGroup:
+        Type: "AWS::RDS::DBSubnetGroup"
+        Properties:
+            DBSubnetGroupDescription: "Subnet Group for  database"
+            DBSubnetGroupName:  "test-db-subnet-group"
+            SubnetIds: !Ref Subnet
+            Tags: 
+              - Key: Name
+                Value: db-cluster
+              - Key: Environment
+                Value: test
+
+    RDSDBInstance:
+        Type: AWS::RDS::DBInstance
+        Properties:
+            DBInstanceIdentifier: aws-database-1
+            AllocatedStorage: 100
+            DBInstanceClass: db.t4g.small
+            Engine: "postgres"
+            EngineVersion: "12"
+            MasterUsername: !Ref MasterUsername
+            MasterUserPassword: !Ref MasterUserPassword
+            AutoMinorVersionUpgrade: true
+            Iops: 1000
+            PubliclyAccessible: false
+            Port: 5432
+            StorageEncrypted: true
+            CopyTagsToSnapshot: true
+            EnableIAMDatabaseAuthentication: true
+            EnablePerformanceInsights: false
+            DeletionProtection: false
+            DBSubnetGroupName: !Ref RDSDBSubnetGroup
+            VPCSecurityGroups: 
+              - !Ref EC2SecurityGroup
+            MaxAllocatedStorage: 1000
+            DBParameterGroupName: !Ref ParameterGroup
+            Tags: 
+              - Key: Name
+                Value: aws-dxl-database-1
+              - Key: Environment
+                Value: test
+
+Outputs:
+   Cluster:
+    Description: The DB Cluster Name
+    Value: !Ref RDSDBInstance
+    
+   SubnetGroup:
+    Description: The db subnet group name 
+    Value: !Ref RDSDBSubnetGroup
